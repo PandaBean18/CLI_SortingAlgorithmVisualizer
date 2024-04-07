@@ -8,7 +8,7 @@ class BubbleSortStep
 {
     public:
     string val = "BubbleSortStep";
-    int currentIndex = 0;
+    int currentIndex = 0, sorted = 0;
 
     void setCurrentIndex(int i)
     {
@@ -18,6 +18,11 @@ class BubbleSortStep
     virtual string stepVal() 
     {
         return val;
+    }
+
+    string parentType()
+    {
+        return "BubbleSortStep";
     }
 };
 
@@ -49,6 +54,18 @@ class ReturnResult: public BubbleSortStep
     }
 };
 
+class InertionSortStep
+{
+    public: 
+    string val = "InsertionSortStep";
+    int index_i = 0, index_j = 0;
+
+    string parentType()
+    {
+        return "BubbleSortStep";
+    }
+};
+
 template <class T>
 class NextStep
 {
@@ -68,20 +85,32 @@ class NextStep
     }
 };
 
+template<class T>
 class SingleIterArray
 {
-	vector<int> current = {5, 1, 3, 8, 7};
-	SingleIterArray *left, *right;
-	CompareAdjacentElements* compareAdjacentElements = new CompareAdjacentElements;
-    SwapAdjacentElements* swapAdjacentElements = new SwapAdjacentElements;
-    ReturnResult* returnResult = new ReturnResult;
+	vector<int> current = {5, 4, 3, 2, 1};
+	SingleIterArray *left = nullptr, *right = nullptr;
+
+    NextStep<T> nextStep;
+    CompareAdjacentElements* compareAdjacentElements = nullptr;
+    SwapAdjacentElements* swapAdjacentElements = nullptr;
+    ReturnResult* returnResult = nullptr;
     
     public:
     int sorted = 0;
-    NextStep<BubbleSortStep> nextStep;
+    
     vector<int> currentArrayState()
     {
         return current;
+    }
+
+    void initialize()
+    {
+        if (nextStep.next->parentType() == "BubbleSortStep") {
+            compareAdjacentElements = new CompareAdjacentElements;
+            swapAdjacentElements = new SwapAdjacentElements;
+            returnResult = new ReturnResult;
+        }
     }
 
     void setNextStep() 
@@ -98,11 +127,24 @@ class SingleIterArray
             int idx = nextStep.next->currentIndex+1;
             nextStep.next = compareAdjacentElements;
             nextStep.next->setCurrentIndex(idx);
+            nextStep.next->sorted = 0;
         } else if (nextStep.type() == "CompareAdjacentElements") {
             int i = nextStep.next->currentIndex;
-            if (i >= (current.size()-1)) {
-                nextStep.next = returnResult;
-            } else if (current[i] > current[i+1]) {
+            
+            if (i == 0) {
+                nextStep.next->sorted = 1;
+            } else if (i >= (current.size()-1)) {
+                if (nextStep.next->sorted) {
+                    sorted = 1;
+                } else if (nextStep.next->sorted ==  0) {
+                    nextStep.next->sorted = 1;
+                    nextStep.next->currentIndex = 0;
+
+                }
+                return;
+            } 
+            
+            if (current[i] > current[i+1]) {
                 nextStep.next = swapAdjacentElements;
                 nextStep.next->setCurrentIndex(i);
             } else {
@@ -125,7 +167,8 @@ class SingleIterArray
 
 int main()
 {
-	SingleIterArray array;
+	SingleIterArray<BubbleSortStep> array;
+    array.initialize();
     array.setNextStep();
 
     while (!array.sorted) {
