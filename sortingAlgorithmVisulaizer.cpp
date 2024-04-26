@@ -156,7 +156,7 @@ class FindInsertionIndex: public InsertionSortStep
         int current_val = (*arrayPtr)[current_index];
         int updated = 0;
         for (int i = 0; i < current_index; i++) {
-            if ((*arrayPtr)[i] < current_val) {
+            if ((*arrayPtr)[i] > current_val) {
                 swap_index = i;
                 updated = 1;
                 break;
@@ -190,6 +190,158 @@ class InsertVal: public InsertionSortStep
     }
 };
 
+class QuickSortStep
+{
+    public:
+    vector<vector<int>> current_array = {};
+
+    string val = "QuickSortStep";
+
+    string parentType()
+    {
+        return "QucikSortStep";
+    }
+
+    virtual string stepVal()
+    {
+        return val;
+    }
+};
+
+class DivideArray: public QuickSortStep
+{
+    public:
+    DivideArray(QuickSortStep* parent)
+    {
+        val = "DivideArray";
+        current_array = parent->current_array;
+    }
+
+    int divisionPossible()
+    {
+        for (int i = 0; i < current_array.size(); i++) {
+            if (current_array[i].size() >= 3) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    void divideArray()
+    {
+        vector<vector<int>> new_array = {};
+
+        for(int i = 0; i < current_array.size(); i++) {
+            if (current_array[i].size() >= 3) {
+                vector<int> pivot = {current_array[i][0]};
+                vector<int> left = {};
+                vector<int> right = {};
+
+                for (int j = 1; j < current_array[i].size(); j++) {
+                    int ele = current_array[i][j];
+
+                    if (ele < pivot[0]) {
+                        left.push_back(ele);
+                    } else if(ele > pivot[0]) {
+                        right.push_back(ele);
+                    } else {
+                        pivot.push_back(ele);
+                    }
+
+                }
+
+                new_array.push_back(left);
+                new_array.push_back(pivot);
+                new_array.push_back(right);
+
+            } else {
+                new_array.push_back(current_array[i]);
+            }
+        }
+        current_array = new_array;
+    }
+};
+
+class SortIndividualBlocks: public QuickSortStep
+{
+    public:
+    
+    SortIndividualBlocks(QuickSortStep *parent)
+    {
+        val = "SortIndividualBlocks";
+        current_array = parent->current_array;
+    }
+
+    int max(vector<int> arr) 
+    {
+        int m = arr[0];
+
+        for (int i=1; i < arr.size(); i++) {
+            if (arr[i] > m) {
+                m = arr[i];
+            }
+        }
+
+        return m;
+    }
+
+    int min(vector<int> arr)
+    {
+        int m = arr[0];
+
+        for (int i = 1; i < arr.size(); i++) {
+            if (arr[i] < m) {
+                m = arr[i];
+            }
+        }
+
+        return m;
+    }
+
+    // returning 1 indicates that array was updated
+    int sort() {
+        for (int i = 0; i < current_array.size(); i++) {
+            vector<int> curr = current_array[i];
+
+            if (curr.size() == 2) {
+                int small = min(curr);
+                int big = max(curr);
+                curr[0] = small;
+                curr[1] = big;
+                if (current_array[i] != curr) {
+                    current_array[i] = curr;
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
+};
+
+class MergeArray: public QuickSortStep
+{
+    public: 
+    MergeArray(QuickSortStep *parent) 
+    {
+        val = "MergeArray";
+        current_array = parent->current_array;
+    }
+
+    vector<int> merge() 
+    {
+        vector<int> return_array = {};
+
+        for(int i = 0; i < current_array.size(); i++) {
+            for (int j = 0; j < current_array[i].size(); j++) {
+                return_array.push_back(current_array[i][j]);
+            }
+        }
+
+        return return_array;
+    }
+};
+
+
 template <class T>
 class NextStep
 {
@@ -213,8 +365,7 @@ class NextStep
 template<class T>
 class SingleIterArray
 {
-	vector<int> current = {7, 2, 8, 1, 6, 9, 5, 5};
-	SingleIterArray *left = nullptr, *right = nullptr;
+    SingleIterArray *left = nullptr, *right = nullptr;
 
     T parentStep;
     NextStep<T> nextStep;
@@ -228,10 +379,15 @@ class SingleIterArray
     FindInsertionIndex* findInsertionIndex = nullptr;
     InsertVal* insertVal = nullptr;
 
+    DivideArray* divideArray = nullptr; 
+    SortIndividualBlocks* sortIndividualBlocks = nullptr;
+    MergeArray* mergeArray = nullptr;
+
     
     public:
     int sorted = 0;
     int stateChanged = 0;
+    vector<int> current = {};
 
     vector<int> currentArrayState()
     {
@@ -264,6 +420,16 @@ class SingleIterArray
         }
     }
 
+    void initializeQuick()
+    {
+        if (is_same<T, QuickSortStep>::value) {
+            parentStep.current_array.push_back(current);
+            divideArray = new DivideArray(&parentStep);
+            sortIndividualBlocks = new SortIndividualBlocks(&parentStep);
+            mergeArray = new MergeArray(&parentStep);
+        }
+    }
+
     void setNextStepBubble()
     {
         nextStep.next = compareAdjacentElements;
@@ -277,6 +443,11 @@ class SingleIterArray
     void setNextStepInsert()
     {
         nextStep.next = findInsertionIndex;
+    }
+
+    void setNextStepQuick()
+    {
+        nextStep.next = divideArray;
     }
 
     void executeNextStepBubble()
@@ -372,31 +543,79 @@ class SingleIterArray
         }
     }
 
+    void executeNextStepQuick()
+    {
+        stateChanged = 0;
+        if (nextStep.type() == "DivideArray") {
+            if (divideArray->divisionPossible()) {
+                divideArray->divideArray();
+                sortIndividualBlocks->current_array = divideArray->current_array;
+                mergeArray->current_array = divideArray->current_array;
+                stateChanged = 1;
+            } else {
+                nextStep.next = sortIndividualBlocks;
+            }
+        } else if (nextStep.type() == "SortIndividualBlocks") {
+            stateChanged = sortIndividualBlocks->sort();
+            if (stateChanged) {
+                divideArray->current_array = sortIndividualBlocks->current_array;
+                mergeArray->current_array = sortIndividualBlocks->current_array;
+            } else {
+                nextStep.next = mergeArray;
+            }
+            
+        } else if (nextStep.type() == "MergeArray") {
+            current = mergeArray->merge();
+            sorted = 1;
+        }
+    }
+
     void printCurrentState() 
     {
+        if (left != nullptr) {
+            left->printCurrentState();
+        }
         for (int i = 0; i < current.size(); i++) {
             cout << current[i] << " ";
         }
-        cout << endl;
+        if (right != nullptr) {
+            right->printCurrentState();
+        }
+        return;
+    }
+
+    void printQuick()
+    {
+        vector<vector<int>> arr = divideArray->current_array;
+
+        for (int i = 0; i < arr.size(); i++) {
+            for(int j = 0; j < arr[i].size(); j++) {
+                cout << arr[i][j] << " ";
+            }
+        }
     }
 
 };
 
 int main()
 {
-	SingleIterArray<InsertionSortStep> array;
-    array.initializeInsert();
-    array.setNextStepInsert();
+	SingleIterArray<QuickSortStep> array;
+    array.current = {7, 2, 8, 1, 6, 9, 5, 5};
+    array.initializeQuick();
+    array.setNextStepQuick();
     array.printCurrentState();
+    cout << endl;
 
     while (!array.sorted) {
         if (array.stateChanged)
         {
-            array.printCurrentState();
+            array.printQuick();
+            cout << endl;
         }
-        array.executeNextStepInsert();
+        array.executeNextStepQuick();
 
     }
+    array.printCurrentState();
     return 0;
 
 }
