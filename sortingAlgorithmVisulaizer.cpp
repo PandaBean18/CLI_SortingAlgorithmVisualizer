@@ -4,7 +4,13 @@
 
 using namespace std;
 
-class BubbleSortStep
+class Step
+{
+    public:
+    int currentIndex = NULL, sorted = NULL, index_current = NULL, index_current_smallest = NULL;
+};
+
+class BubbleSortStep: public Step
 {
     public:
     string val = "BubbleSortStep";
@@ -54,23 +60,73 @@ class ReturnResult: public BubbleSortStep
     }
 };
 
-class InertionSortStep
+class SelectionSortStep: public Step
 {
     public: 
-    string val = "InsertionSortStep";
+    string val = "SelectionSortStep";
     int index_current = 0, index_current_smallest = 0;
 
     string parentType()
     {
-        return "InsertionSortStep";
+        return "SelectionSortStep";
+    }
+
+    virtual string stepVal()
+    {
+        return val;
     }
 };
 
-class FindSmallestNumber: public InertionSortStep
+class FindSmallestNumber : public SelectionSortStep
 {
     public:
 
+    FindSmallestNumber(SelectionSortStep* parent)
+    {
+        val = "FindSmallestNumber";
+        index_current = parent->index_current;
+        index_current_smallest = parent->index_current_smallest;
+    }
 
+    // returns 1 if it found a smaller integer than integer at current index, else it returns 0
+    // if it returns 1, then we have to swap the places of the smallest integer and current integer and then updated index_current_smallest to index_current
+    int findSmallestNumber(vector<int>* arrayPtr)
+    {
+        int curr = (*arrayPtr)[index_current];
+        int smallest = index_current;
+        int updated = 0;
+        for (int i = smallest; i < (*arrayPtr).size(); i++) {
+            if ((*arrayPtr)[i] < curr) {
+                curr = (*arrayPtr)[i];
+                smallest = i;
+                updated = 1;
+            }
+        }
+
+        index_current_smallest = smallest;
+        return updated;
+    }
+
+};
+
+class SwapWithSmallestElement : public SelectionSortStep
+{
+    public:
+    SwapWithSmallestElement(SelectionSortStep *parent)
+    {
+        val = "SwapWithSmallestElement";
+        index_current = parent->index_current;
+        index_current_smallest = parent->index_current_smallest;
+    }
+
+    void swap(vector<int>* arrayPtr)
+    {
+        int temp = (*arrayPtr)[index_current_smallest];
+        (*arrayPtr)[index_current_smallest] = (*arrayPtr)[index_current];
+        (*arrayPtr)[index_current] = temp;
+        index_current++;
+        index_current_smallest = index_current;
+    }
 };
 
 template <class T>
@@ -79,6 +135,7 @@ class NextStep
 	
 	public:
     T *next; 
+
     string type()
     {
         return next->stepVal();
@@ -95,13 +152,18 @@ class NextStep
 template<class T>
 class SingleIterArray
 {
-	vector<int> current = {5, 4, 3, 2, 1};
+	vector<int> current = {7, 2, 8, 1, 6, 9, 5, 5};
 	SingleIterArray *left = nullptr, *right = nullptr;
 
+    T parentStep;
     NextStep<T> nextStep;
     CompareAdjacentElements* compareAdjacentElements = nullptr;
     SwapAdjacentElements* swapAdjacentElements = nullptr;
     ReturnResult* returnResult = nullptr;
+
+    FindSmallestNumber* findSmallestNumber = nullptr; 
+    SwapWithSmallestElement* swapWithSmallestElement = nullptr;
+
     
     public:
     int sorted = 0;
@@ -114,19 +176,27 @@ class SingleIterArray
 
     void initialize()
     {
-        if (nextStep.next->parentType() == "BubbleSortStep") {
+        if (is_same<T, BubbleSortStep>::value) {
             compareAdjacentElements = new CompareAdjacentElements;
             swapAdjacentElements = new SwapAdjacentElements;
             returnResult = new ReturnResult;
+        } else if (is_same<T,SelectionSortStep>::value) {
+            findSmallestNumber = new FindSmallestNumber(&parentStep);
+            swapWithSmallestElement = new SwapWithSmallestElement(&parentStep);
         }
     }
 
-    void setNextStep() 
+    void setNextStepBubble()
     {
         nextStep.next = compareAdjacentElements;
     }
 
-    void executeNextStep()
+    void setNextStepSelect()
+    {
+        nextStep.next = findSmallestNumber;
+    }
+
+    void executeNextStepBubble()
     {
         stateChanged = 0;
         if (nextStep.type() == "SwapAdjacentElements") {
@@ -165,6 +235,34 @@ class SingleIterArray
         }
     }
 
+    void executeNextStepSelect()
+    {
+        stateChanged = 0;
+        if (findSmallestNumber->index_current == current.size()) {
+            sorted = 1;
+        } else if (nextStep.type() == "FindSmallestNumber") {
+            int a = findSmallestNumber->findSmallestNumber(&current);
+            if (a) {
+                swapWithSmallestElement->index_current = findSmallestNumber->index_current;
+                swapWithSmallestElement->index_current_smallest = findSmallestNumber->index_current_smallest;
+                nextStep.next = swapWithSmallestElement;
+            } else {
+                findSmallestNumber->index_current++;
+                findSmallestNumber->index_current_smallest = findSmallestNumber->index_current;
+                swapWithSmallestElement->index_current++;
+                swapWithSmallestElement->index_current_smallest = swapWithSmallestElement->index_current;
+                nextStep.next = findSmallestNumber;
+            }
+            
+        } else if (nextStep.type() == "SwapWithSmallestElement") {
+            swapWithSmallestElement->swap(&current);
+            findSmallestNumber->index_current = swapWithSmallestElement->index_current;
+            findSmallestNumber->index_current_smallest = swapWithSmallestElement->index_current_smallest;
+            nextStep.next = findSmallestNumber;
+            stateChanged = 1;
+        }
+    }
+
     void printCurrentState() 
     {
         for (int i = 0; i < current.size(); i++) {
@@ -177,16 +275,18 @@ class SingleIterArray
 
 int main()
 {
-	SingleIterArray<BubbleSortStep> array;
+	SingleIterArray<SelectionSortStep> array;
     array.initialize();
-    array.setNextStep();
+    array.setNextStepSelect();
+
+    array.printCurrentState();
 
     while (!array.sorted) {
         if (array.stateChanged)
         {
             array.printCurrentState();
         }
-        array.executeNextStep();
+        array.executeNextStepSelect();
 
     }
     return 0;
