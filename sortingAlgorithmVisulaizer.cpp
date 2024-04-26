@@ -4,13 +4,7 @@
 
 using namespace std;
 
-class Step
-{
-    public:
-    int currentIndex = NULL, sorted = NULL, index_current = NULL, index_current_smallest = NULL;
-};
-
-class BubbleSortStep: public Step
+class BubbleSortStep
 {
     public:
     string val = "BubbleSortStep";
@@ -60,7 +54,7 @@ class ReturnResult: public BubbleSortStep
     }
 };
 
-class SelectionSortStep: public Step
+class SelectionSortStep
 {
     public: 
     string val = "SelectionSortStep";
@@ -129,6 +123,73 @@ class SwapWithSmallestElement : public SelectionSortStep
     }
 };
 
+class InsertionSortStep
+{
+    public: 
+    int current_index = 1, swap_index = -1;
+    string val = "InsertionSortStep";
+
+    string parentType()
+    {
+        return "InsertionSortStep";
+    }
+
+    virtual string stepVal()
+    {
+        return val;
+    }
+};
+
+class FindInsertionIndex: public InsertionSortStep
+{
+    public: 
+
+    FindInsertionIndex(InsertionSortStep *parent)
+    {
+        val = "FindInsertionIndex";
+        current_index = parent->current_index; 
+        swap_index = parent->swap_index;
+    }
+
+    int findInsertionIndex(vector<int> *arrayPtr)
+    {
+        int current_val = (*arrayPtr)[current_index];
+        int updated = 0;
+        for (int i = 0; i < current_index; i++) {
+            if ((*arrayPtr)[i] < current_val) {
+                swap_index = i;
+                updated = 1;
+                break;
+            }
+        }
+        return updated;
+    }
+};
+
+class InsertVal: public InsertionSortStep
+{
+    public:
+    InsertVal(InsertionSortStep *parent)
+    {
+        val = "InsertVal";
+        current_index = parent->current_index;
+        swap_index = parent->swap_index;
+    }
+
+    void insert(vector<int> *arrayPtr)
+    {
+        int temp = (*arrayPtr)[current_index];
+
+        for (int i = current_index; i > swap_index; i--) {
+            (*arrayPtr)[i] = (*arrayPtr)[i-1];
+        }
+
+        (*arrayPtr)[swap_index] = temp;
+        current_index++;
+        swap_index = -1;
+    }
+};
+
 template <class T>
 class NextStep
 {
@@ -164,6 +225,9 @@ class SingleIterArray
     FindSmallestNumber* findSmallestNumber = nullptr; 
     SwapWithSmallestElement* swapWithSmallestElement = nullptr;
 
+    FindInsertionIndex* findInsertionIndex = nullptr;
+    InsertVal* insertVal = nullptr;
+
     
     public:
     int sorted = 0;
@@ -192,6 +256,14 @@ class SingleIterArray
         }
     }
 
+    void initializeInsert()
+    {
+        if (is_same<T, InsertionSortStep>::value) {
+            findInsertionIndex = new FindInsertionIndex(&parentStep);
+            insertVal = new InsertVal(&parentStep);
+        }
+    }
+
     void setNextStepBubble()
     {
         nextStep.next = compareAdjacentElements;
@@ -200,6 +272,11 @@ class SingleIterArray
     void setNextStepSelect()
     {
         nextStep.next = findSmallestNumber;
+    }
+
+    void setNextStepInsert()
+    {
+        nextStep.next = findInsertionIndex;
     }
 
     void executeNextStepBubble()
@@ -248,6 +325,7 @@ class SingleIterArray
             sorted = 1;
         } else if (nextStep.type() == "FindSmallestNumber") {
             int a = findSmallestNumber->findSmallestNumber(&current);
+
             if (a) {
                 swapWithSmallestElement->index_current = findSmallestNumber->index_current;
                 swapWithSmallestElement->index_current_smallest = findSmallestNumber->index_current_smallest;
@@ -269,6 +347,31 @@ class SingleIterArray
         }
     }
 
+    void executeNextStepInsert() 
+    {
+        stateChanged = 0;
+        if (findInsertionIndex->current_index == current.size()) {
+            sorted = 1;
+        } else if (nextStep.type() == "FindInsertionIndex") {
+            int a = findInsertionIndex->findInsertionIndex(&current);
+
+            if (a) {
+                nextStep.next = insertVal;
+                insertVal->current_index = findInsertionIndex->current_index;
+                insertVal->swap_index = findInsertionIndex->swap_index;
+            } else {
+                findInsertionIndex->current_index++;
+                insertVal->current_index = findInsertionIndex->current_index;
+            } 
+        } else if (nextStep.type() == "InsertVal") {
+            insertVal->insert(&current);
+            findInsertionIndex->current_index = insertVal->current_index;
+            findInsertionIndex->swap_index = insertVal->swap_index;
+            nextStep.next = findInsertionIndex;
+            stateChanged = 1;
+        }
+    }
+
     void printCurrentState() 
     {
         for (int i = 0; i < current.size(); i++) {
@@ -281,10 +384,9 @@ class SingleIterArray
 
 int main()
 {
-	SingleIterArray<BubbleSortStep> array;
-    array.initializeBubble();
-    array.setNextStepBubble();
-
+	SingleIterArray<InsertionSortStep> array;
+    array.initializeInsert();
+    array.setNextStepInsert();
     array.printCurrentState();
 
     while (!array.sorted) {
@@ -292,7 +394,7 @@ int main()
         {
             array.printCurrentState();
         }
-        array.executeNextStepBubble();
+        array.executeNextStepInsert();
 
     }
     return 0;
