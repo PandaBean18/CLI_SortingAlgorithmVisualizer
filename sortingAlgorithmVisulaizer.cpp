@@ -1,6 +1,8 @@
 #include <iostream> 
 #include <vector>
 #include <string>
+#include <unistd.h>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -362,6 +364,27 @@ class NextStep
     }
 };
 
+class SorterError
+{
+    public:
+    string errorMessage = "An error occured";
+
+    virtual void printError() {
+        cout << errorMessage << endl;
+    }
+};
+
+template <class T, class U>
+class IncompatibleTypeInitialization: public SorterError
+{
+    public:
+    
+    IncompatibleTypeInitialization(T *expectedClass, U *givenClass)
+    {
+        errorMessage = format("SingleIterArray initialized with wrong sorting algorithm. Expected {} and received {}", expectedClass->val, givenClass->val);
+    }
+};
+
 template<class T>
 class SingleIterArray
 {
@@ -401,7 +424,7 @@ class SingleIterArray
             compareAdjacentElements = new CompareAdjacentElements;
             swapAdjacentElements = new SwapAdjacentElements;
             returnResult = new ReturnResult;
-        }
+        } 
     }
 
     void initializeSelect()
@@ -409,7 +432,7 @@ class SingleIterArray
         if (is_same<T,SelectionSortStep>::value) {
             findSmallestNumber = new FindSmallestNumber(&parentStep);
             swapWithSmallestElement = new SwapWithSmallestElement(&parentStep);
-        }
+        } 
     }
 
     void initializeInsert()
@@ -417,7 +440,7 @@ class SingleIterArray
         if (is_same<T, InsertionSortStep>::value) {
             findInsertionIndex = new FindInsertionIndex(&parentStep);
             insertVal = new InsertVal(&parentStep);
-        }
+        } 
     }
 
     void initializeQuick()
@@ -427,7 +450,7 @@ class SingleIterArray
             divideArray = new DivideArray(&parentStep);
             sortIndividualBlocks = new SortIndividualBlocks(&parentStep);
             mergeArray = new MergeArray(&parentStep);
-        }
+        } 
     }
 
     void setNextStepBubble()
@@ -570,52 +593,324 @@ class SingleIterArray
         }
     }
 
-    void printCurrentState() 
+    vector<int> currentStatus() 
     {
-        if (left != nullptr) {
-            left->printCurrentState();
-        }
+        vector<int> a = {};
         for (int i = 0; i < current.size(); i++) {
-            cout << current[i] << " ";
+            a.push_back(current[i]);
         }
-        if (right != nullptr) {
-            right->printCurrentState();
-        }
-        return;
+
+        return a;
     }
 
-    void printQuick()
+    vector<int> currentStatusQuick()
     {
         vector<vector<int>> arr = divideArray->current_array;
-
+        vector<int> a = {};
         for (int i = 0; i < arr.size(); i++) {
             for(int j = 0; j < arr[i].size(); j++) {
-                cout << arr[i][j] << " ";
+                a.push_back(arr[i][j]);
             }
         }
+        return a;
     }
 
 };
 
+int maximum(vector<int> arr)
+{
+    int m = arr[0];
+
+    for (int i = 1; i < arr.size(); i++)
+    {
+        if (arr[i] > m)
+        {
+            m = arr[i];
+        }
+    }
+
+    return m;
+}
+
+void display(vector<int> arr, string alg)
+{
+    int m = maximum(arr);
+    system("clear");
+    cout << "                                                               ALGORITHM: " << alg << endl << endl;
+    cout << "TIME COMPLEXITY: ";
+    if (alg == "QuickSort") {
+        cout << "O(nlogn)" << endl;
+    } else {
+        cout << "O(n^2)" << endl;
+    } 
+    cout << endl;
+    cout << "INDEX   0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15" << endl;
+
+    for (int i = 0; i < m; i++) {
+        if (i < 9) {
+            cout << "    " << i+1 << "   ";
+        } else {
+            cout << "   " << i+1 << "   ";
+        }
+        for (int j = 0; j < arr.size(); j++) {
+            if ((arr[j]-i) > 0) {
+                cout << "#   ";
+            } else if ((arr[j]-i) == 0) {
+                if (arr[j] < 10) {
+                    cout << arr[j] << "   ";
+                } else {
+                    cout << arr[j] << "  ";
+                }
+            } else {
+                cout << "    ";
+            }
+        }
+        cout << endl;
+    }
+    cout << endl << endl;
+
+    if (alg == "BubbleSort") {
+        cout << "Bubble sort is a simple sorting algorithm that repeatedly steps through the list, compares adjacent elements, and swaps them if they are in the wrong order.It continues this process until the entire list is sorted, with larger elements 'bubbling' to the top with each iteration." << endl;
+    } else if (alg == "InsertionSort") {
+        cout << "Insertion sort is a simple sorting algorithm that builds the final sorted array one element at a time by iteratively inserting each element into its correct position relative to the already sorted elements. It has an average and worst-case time complexity of O(n^2) but performs efficiently on small datasets or nearly sorted arrays." << endl;
+    } else if (alg == "SelectionSort") {
+        cout << "Selection sort is a simple sorting algorithm that repeatedly finds the minimum element from the unsorted part of the array and swaps it with the element at the beginning of the unsorted part. It continues this process until the entire array is sorted." << endl;
+    } else if (alg == "QuickSort") {
+        cout << "Quick sort is a highly efficient sorting algorithm that uses a divide-and-conquer approach to recursively partition the array into smaller subarrays based on a pivot element, then sorts each subarray independently. It has an average time complexity of O(nlogn) and is widely used due to its speed and ability to sort large datasets efficiently." << endl;
+    }
+}
+
+void runBubbleSort(vector<int> a)
+{
+    SingleIterArray<BubbleSortStep> arr;
+    arr.current = a;
+    int i = 0;
+    arr.initializeBubble();
+    arr.setNextStepBubble();
+    display(arr.currentStatus(), "BubbleSort");
+    sleep(1);
+    while (!arr.sorted) {
+        if (arr.stateChanged) {
+            i++;
+            display(arr.currentStatus(), "BubbleSort");
+            sleep(1);
+        }
+        arr.executeNextStepBubble();
+    }
+    cout << "Total iterations: " << i << endl;
+}
+
+void runInsertionSort(vector<int> a)
+{
+    SingleIterArray<InsertionSortStep> arr;
+    arr.current = a;
+    int i = 0;
+    arr.initializeInsert();
+    arr.setNextStepInsert();
+    display(arr.currentStatus(), "InsertionSort");
+    sleep(1);
+    while (!arr.sorted)
+    {
+        if (arr.stateChanged)
+        {
+            i++;
+            display(arr.currentStatus(), "InsertionSort");
+            sleep(1);
+        }
+        arr.executeNextStepInsert();
+    }
+    cout << "Total iterations: " << i << endl;
+}
+
+void runSelectionSort(vector<int> a)
+{
+    SingleIterArray<SelectionSortStep> arr;
+    int i = 0;
+    arr.current = a;
+    arr.initializeSelect();
+    arr.setNextStepSelect();
+    display(arr.currentStatus(), "SelectionSort");
+    sleep(1);
+    while (!arr.sorted)
+    {
+        if (arr.stateChanged)
+        {
+            i++;
+            display(arr.currentStatus(), "SelectionSort");
+            sleep(1);
+        }
+        arr.executeNextStepSelect();
+    }
+    cout << "Total iterations: " << i << endl;
+}
+
+void runQuickSort(vector<int> a)
+{
+    SingleIterArray<QuickSortStep> arr;
+    int i = 0;
+    arr.current = a;
+    arr.initializeQuick();
+    arr.setNextStepQuick();
+    display(arr.currentStatusQuick(), "QuickSort");
+    sleep(1);
+    while (!arr.sorted)
+    {
+        if (arr.stateChanged)
+        {
+            i++;
+            display(arr.currentStatusQuick(), "QuickSort");
+            sleep(1);
+        }
+        arr.executeNextStepQuick();
+    }
+    cout << "Total iterations: " << i << endl;
+}
+
+void compareAlgorithms() 
+{
+    int first, second;
+    cout << "Which two algorthms do you want to compare? " << endl;
+    cout << "1. BubbleSort" << endl;
+    cout << "2. InsertionSort" << endl;
+    cout << "3. SelectionSort" << endl;
+    cout << "4. QuickSort" << endl;
+    cout << "First: ";
+    cin >> first;
+    cout << "Second: ";
+    cin >> second;
+
+    SingleIterArray<BubbleSortStep> b;
+    SingleIterArray<InsertionSortStep> i;
+    SingleIterArray<SelectionSortStep> s;
+    SingleIterArray<QuickSortStep> q;
+
+
+}
+
 int main()
 {
-	SingleIterArray<QuickSortStep> array;
-    array.current = {7, 2, 8, 1, 6, 9, 5, 5};
-    array.initializeQuick();
-    array.setNextStepQuick();
-    array.printCurrentState();
-    cout << endl;
+    cout << " .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------. " << endl;
+    cout << "| .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. |" << endl;
+    cout << "| | _____  _____ | || |  _________   | || |   _____      | || |     ______   | || |     ____     | || | ____    ____ | || |  _________   | |" << endl;
+    cout << "| ||_   _||_   _|| || | |_   ___  |  | || |  |_   _|     | || |   .' ___  |  | || |   .'    `.   | || ||_   \  /   _|| || | |_   ___  |  | |" << endl;
+    cout << "| |  | | /  | |  | || |   | |_  |_|  | || |    | |       | || |  / .'   |_|  | || |  /  .--.  |  | || |  |    V   |  | || |   | |_  |_|  | |" << endl;
+    cout << "| |  | |/   | |  | || |   |  _|  _   | || |    | |   _   | || |  | |         | || |  | |    | |  | || |  | |\  /| |  | || |   |  _|  _   | |" << endl;
+    cout << "| |  |   ^    |  | || |  _| |___/ |  | || |   _| |__/ |  | || |  | `.___.'|  | || |  |  `--'  /  | || | _| |_ V_| |_ | || |  _| |___/ |  | |" << endl;
+    cout << "| |  |__/  |__|  | || | |_________|  | || |  |________|  | || |   `._____.'  | || |   `.____.'   | || ||_____||_____|| || | |_________|  | |" << endl;
+    cout << "| |              | || |              | || |              | || |              | || |              | || |              | || |              | |" << endl;
+    cout << "| '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |" << endl;
+    cout << "'----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------' " << endl;
+    sleep(2);
+    vector<int> a = {13, 8, 19, 14, 9, 12, 17, 16, 0, 2, 10, 3, 6, 18, 1, 7};
 
-    while (!array.sorted) {
-        if (array.stateChanged)
+    while (1) {
+        int c;
+        cout << "What would you like to do?" << endl;
+        cout << "1. Run visualisation with BubbleSort. " << endl;
+        cout << "2. Run visualisation with InsertionSort. " << endl;
+        cout << "3. Run visualisation with SelectionSort. " << endl;
+        cout << "4. Run visualisation with QuickSort. " << endl;
+        cout << "5. Exit " << endl;
+        cout << "> ";
+        cin >> c;
+
+        if (c == 1)
         {
-            array.printQuick();
+            cout << "The current dataset is: ";
+            for (int i = 0; i < a.size(); i++)
+            {
+                cout << a[i] << " ";
+            }
+            int b;
             cout << endl;
+            cout << "Do you wish to use your own dataset? (0/1)"
+                 << "\n> ";
+            cin >> b;
+            if (b)
+            {
+                cout << "**NOTE** Numbers greater than 15 will be replaced by mod of 15" << endl;
+                for (int i = 0; i <= 15; i++)
+                {
+                    cout << "Enter the number (" << i + 1 << "/16): ";
+                    cin >> a[i];
+                }
+            }
+            runBubbleSort(a);
         }
-        array.executeNextStepQuick();
-
+        else if (c == 2)
+        {
+            cout << "The current dataset is: ";
+            for (int i = 0; i < a.size(); i++)
+            {
+                cout << a[i] << " ";
+            }
+            int b;
+            cout << endl;
+            cout << "Do you wish to use your own dataset? (0/1)"
+                 << "\n> ";
+            cin >> b;
+            if (b)
+            {
+                cout << "**NOTE** Numbers greater than 15 will be replaced by mod of 15" << endl;
+                for (int i = 0; i <= 15; i++)
+                {
+                    cout << "Enter the number (" << i + 1 << "/16): ";
+                    cin >> a[i];
+                }
+            }
+            runInsertionSort(a);
+        }
+        else if (c == 3)
+        {
+            cout << "The current dataset is: ";
+            for (int i = 0; i < a.size(); i++)
+            {
+                cout << a[i] << " ";
+            }
+            int b;
+            cout << endl;
+            cout << "Do you wish to use your own dataset? (0/1)"
+                 << "\n> ";
+            cin >> b;
+            if (b)
+            {
+                cout << "**NOTE** Numbers greater than 15 will be replaced by mod of 15" << endl;
+                for (int i = 0; i <= 15; i++)
+                {
+                    cout << "Enter the number (" << i + 1 << "/16): ";
+                    cin >> a[i];
+                }
+            }
+            runSelectionSort(a);
+        }
+        else if (c == 4)
+        {
+            cout << "The current dataset is: ";
+            for (int i = 0; i < a.size(); i++)
+            {
+                cout << a[i] << " ";
+            }
+            int b;
+            cout << endl;
+            cout << "Do you wish to use your own dataset? (0/1)"
+                 << "\n> ";
+            cin >> b;
+            if (b)
+            {
+                cout << "**NOTE** Numbers greater than 15 will be replaced by mod of 15" << endl;
+                for (int i = 0; i <= 15; i++)
+                {
+                    cout << "Enter the number (" << i + 1 << "/16): ";
+                    cin >> a[i];
+                }
+            }
+            runQuickSort(a);
+        }
+        else
+        {
+            exit(0);
+        }
     }
-    array.printCurrentState();
-    return 0;
 
+    return 0;
 }
