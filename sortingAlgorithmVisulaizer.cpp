@@ -174,13 +174,19 @@ class SingleIterArray
         return current;
     }
 
-    void initialize()
+    void initializeBubble()
     {
+        // update to add error class in case T is not of bubblesort type
         if (is_same<T, BubbleSortStep>::value) {
             compareAdjacentElements = new CompareAdjacentElements;
             swapAdjacentElements = new SwapAdjacentElements;
             returnResult = new ReturnResult;
-        } else if (is_same<T,SelectionSortStep>::value) {
+        }
+    }
+
+    void initializeSelect()
+    {
+        if (is_same<T,SelectionSortStep>::value) {
             findSmallestNumber = new FindSmallestNumber(&parentStep);
             swapWithSmallestElement = new SwapWithSmallestElement(&parentStep);
         }
@@ -275,9 +281,9 @@ class SingleIterArray
 
 int main()
 {
-	SingleIterArray<SelectionSortStep> array;
-    array.initialize();
-    array.setNextStepSelect();
+	SingleIterArray<BubbleSortStep> array;
+    array.initializeBubble();
+    array.setNextStepBubble();
 
     array.printCurrentState();
 
@@ -286,7 +292,7 @@ int main()
         {
             array.printCurrentState();
         }
-        array.executeNextStepSelect();
+        array.executeNextStepBubble();
 
     }
     return 0;
