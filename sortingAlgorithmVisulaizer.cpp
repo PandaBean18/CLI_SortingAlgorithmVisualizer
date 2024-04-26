@@ -58,12 +58,19 @@ class InertionSortStep
 {
     public: 
     string val = "InsertionSortStep";
-    int index_i = 0, index_j = 0;
+    int index_current = 0, index_current_smallest = 0;
 
     string parentType()
     {
-        return "BubbleSortStep";
+        return "InsertionSortStep";
     }
+};
+
+class FindSmallestNumber: public InertionSortStep
+{
+    public:
+
+
 };
 
 template <class T>
@@ -98,7 +105,8 @@ class SingleIterArray
     
     public:
     int sorted = 0;
-    
+    int stateChanged = 0;
+
     vector<int> currentArrayState()
     {
         return current;
@@ -120,6 +128,7 @@ class SingleIterArray
 
     void executeNextStep()
     {
+        stateChanged = 0;
         if (nextStep.type() == "SwapAdjacentElements") {
             int temp = current[nextStep.next->currentIndex];
             current[nextStep.next->currentIndex] = current[nextStep.next->currentIndex+1];
@@ -128,6 +137,7 @@ class SingleIterArray
             nextStep.next = compareAdjacentElements;
             nextStep.next->setCurrentIndex(idx);
             nextStep.next->sorted = 0;
+            stateChanged = 1;
         } else if (nextStep.type() == "CompareAdjacentElements") {
             int i = nextStep.next->currentIndex;
             
@@ -172,7 +182,10 @@ int main()
     array.setNextStep();
 
     while (!array.sorted) {
-        array.printCurrentState();
+        if (array.stateChanged)
+        {
+            array.printCurrentState();
+        }
         array.executeNextStep();
 
     }
